@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>🏥 復健科 Grandrun 報告產生器 · 白底重設計</title>
+  <title>🏥 復健科 Grandrun 報告產生器</title>
   <style>
     /* =====================
        Light UI — clean, clinical, print-friendly
@@ -42,9 +42,12 @@
     h1{ font-size: clamp(22px,2.2vw,28px); margin:0; font-weight:800; color:#0f172a }
     .sub{ color: var(--muted); font-size:14px }
 
-    /* Grid */
+    /* Grid：兩欄；右欄放輸出與按鈕 */
     .grid{ display:grid; grid-template-columns: 1fr; gap:16px; }
-    @media (min-width: 1024px){ .grid{ grid-template-columns: 1fr 1fr; gap:18px; } }
+    @media (min-width: 1024px){
+      .grid{ grid-template-columns: 1fr 1fr; gap:18px; align-items:start; }
+      .col--right{ display:flex; flex-direction:column; }
+    }
 
     /* Card */
     .card{ background: var(--card); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow:hidden }
@@ -58,8 +61,22 @@
     textarea:focus{ outline:none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.15) }
     .h200{ min-height:200px } .h260{ min-height:260px } .h340{ min-height:340px }
 
-    /* Actions */
-    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center }
+    /* Output */
+    .out{ white-space: pre-wrap; background:#ffffff; border:1px solid var(--border); border-radius: 12px; padding:12px; font-family: var(--mono); font-size: 13px; color:#111827 }
+
+    /* Actions：固定放在輸出 card 下方，右下對齊 */
+    .actions{
+      display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+      margin-top:12px;
+    }
+    @media (min-width: 1024px){
+      .actions{ justify-content:flex-end; }
+    }
+    @media (max-width: 1023.98px){
+      .actions{ justify-content:flex-end; } /* 手機也右對齊 */
+    }
+
+    /* Buttons */
     button{
       border:1px solid var(--accent); background: var(--accent); color:#ffffff;
       padding:10px 14px; border-radius: 12px; cursor:pointer; font-weight:700; transition:.2s transform, .2s filter;
@@ -70,16 +87,10 @@
 
     .pill{ padding: 6px 10px; border-radius: 999px; font-size: 12px; border:1px dashed var(--border); color:var(--muted) }
 
-    /* Output */
-    .out{ white-space: pre-wrap; background:#ffffff; border:1px solid var(--border); border-radius: 12px; padding:12px; font-family: var(--mono); font-size: 13px; color:#111827 }
-
-    /* Footer */
+    /* Footer & misc */
     .footer{ margin: 28px 0 10px; color: var(--muted); font-size:12px }
-
-    /* Status */
     .ok{ color: var(--ok); font-weight:700 }
     .warn{ color: var(--warn); font-weight:700 }
-    .right{ margin-left:auto }
     .muted{ color: var(--muted) }
     .tiny{ font-size: 12px }
 
@@ -91,44 +102,52 @@
   <div class="wrap">
     <div class="header">
       <h1>🏥 復健科 Grandrun 報告產生器</h1>
-      <div class="sub">白底・黑字・臨床友善排版</div>
+      <div class="sub">高醫復健科</div>
     </div>
 
     <div class="grid">
-      <div class="card">
-        <h2>輸入</h2>
-        <div class="body">
-          <label>診斷 (Diagnosis)</label>
-          <textarea id="diagnosis" class="h200" placeholder="在此貼上診斷摘要…"></textarea>
+      <!-- 左欄：輸入 -->
+      <div class="col col--left">
+        <div class="card">
+          <h2>輸入</h2>
+          <div class="body">
+            <label>診斷 (Diagnosis)</label>
+            <textarea id="diagnosis" class="h200" placeholder="在此貼上診斷摘要…"></textarea>
 
-          <label>PE / Functional status / Local finding</label>
-          <textarea id="pe" class="h260" placeholder="在此貼上 PE、功能狀態、Local finding…"></textarea>
+            <label>PE / Functional status / Local finding</label>
+            <textarea id="pe" class="h260" placeholder="在此貼上 PE、功能狀態、Local finding…"></textarea>
 
-          <label>HTML（治療醫囑，原檔 HTML 片段亦可）</label>
-          <textarea id="htmltext" class="h200" placeholder="在此貼上 HTML 片段或關鍵字/縮寫…"></textarea>
-
-          
+            <label>HTML（治療醫囑，原檔 HTML 片段亦可）</label>
+            <textarea id="htmltext" class="h200" placeholder="在此貼上 HTML 片段或關鍵字/縮寫…"></textarea>
+          </div>
         </div>
       </div>
 
-      <div class="card">
-        <h2>輸出</h2>
-        <div class="body">
-          <div id="out" class="out h340" placeholder="報告將顯示於此…"></div>
+      <!-- 右欄：輸出 + 按鈕（右下） -->
+      <div class="col col--right">
+        <div class="card">
+          <h2>輸出</h2>
+          <div class="body">
+            <div id="out" class="out h340" placeholder="報告將顯示於此…"></div>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <div class="row" style="margin-top:16px">
-      <button id="gen">產生報告</button>
-      <button id="copy" class="ghost">複製報告</button>
-      <button id="save" class="ghost">下載 .txt</button>
-      <span id="status" class="tiny muted"></span>
-      <span class="right tiny muted">預設不儲存資料；每次開啟皆為空白</span>
+        <!-- 按鈕列：緊貼輸出 card 下方 -->
+        <div class="actions">
+          <span class="tiny muted" id="status"></span>
+          <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="gen">產生報告</button>
+            <button id="copy" class="ghost">複製報告</button>
+            <button id="save" class="ghost">下載 .txt</button>
+          </div>
+        </div>
+
+        <div class="tiny muted" style="margin-top:8px;">預設不儲存資料；每次開啟皆為空白</div>
+      </div>
     </div>
 
     <div class="footer tiny">
-      版面著重紙本友善、對比清晰與易讀性。
+      Grand Run 好煩
     </div>
   </div>
 
