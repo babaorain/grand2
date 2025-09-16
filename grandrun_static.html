@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🏥 復健科 Grandrun 報告產生器（純前端靜態版）</title>
+  <style>
+    :root{
+      --bg:#0b1020;--card:#11172c;--ink:#e8eefc;--muted:#9fb1d6;--accent:#7aa2ff;--accent2:#00e0b8;--warn:#ffd166;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans TC, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body{
+      margin:0; background: radial-gradient(1200px 800px at 70% -10%, #1a2250 0%, var(--bg) 60%), var(--bg);
+      color: var(--ink); font-family: var(--sans); line-height: 1.6; letter-spacing:.2px;
+    }
+    .wrap{ max-width: 1200px; margin: 40px auto; padding: 0 16px; }
+    h1{ font-size: clamp(22px,2.4vw,28px); margin:0 0 12px; font-weight:700 }
+    .sub{ color: var(--muted); margin-bottom: 20px; }
+    .grid{ display:grid; grid-template-columns: 1fr; gap:16px; }
+    @media (min-width: 1024px){ .grid{ grid-template-columns: 1fr 1fr; gap:18px; } }
+    .card{ background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)); border:1px solid rgba(122,162,255,.18);
+           border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); overflow:hidden }
+    .card h2{ margin:0; padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.06); font-size:16px; color:#cfe0ff }
+    .card .body{ padding: 12px; }
+    label{ display:block; font-size:12px; color: var(--muted); margin:8px 2px; }
+    textarea{ width:100%; min-height:160px; resize:vertical; padding:10px 12px; border-radius: 12px; background:#0e1630; color:var(--ink);
+              border:1px solid rgba(122,162,255,.25); font-family: var(--mono); font-size: 13px; }
+    .h200{ min-height:200px } .h260{ min-height:260px } .h340{ min-height:340px }
+    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center }
+    button{
+      border:1px solid rgba(122,162,255,.5); background: linear-gradient(90deg, rgba(122,162,255,.25), rgba(0,224,184,.25));
+      color:var(--ink); padding:10px 14px; border-radius: 12px; cursor:pointer; font-weight:700; transition:.2s transform;
+    }
+    button:hover{ transform: translateY(-1px) }
+    .ghost{ background: transparent; border-color: rgba(122,162,255,.3); color: var(--muted); }
+    .pill{ padding: 6px 10px; border-radius: 999px; font-size: 12px; border:1px dashed rgba(122,162,255,.35); color:var(--muted) }
+    .out{ white-space: pre-wrap; background:#0b1430; border:1px solid rgba(122,162,255,.25); border-radius: 12px; padding:12px; font-family: var(--mono); font-size: 13px; }
+    .footer{ margin: 28px 0 10px; color: var(--muted); font-size:12px }
+    .ok{ color: var(--accent2); font-weight:700 }
+    .warn{ color: var(--warn); font-weight:700 }
+    .right{ margin-left:auto }
+    .muted{ color: var(--muted) }
+    .tiny{ font-size: 12px }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🏥 復健科 Grandrun 報告產生器（純前端靜態版）</h1>
+    <div class="sub tiny">不需伺服器／Python／Streamlit；一個 <span class="pill">.html</span> 檔即可部署於 GitHub Pages、Netlify、Cloudflare Pages 或任何靜態主機</div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>輸入</h2>
+        <div class="body">
+          <label>診斷 (Diagnosis)</label>
+          <textarea id="diagnosis" class="h200" placeholder="在此貼上診斷摘要…"></textarea>
+          <label>PE / Functional status / Local finding</label>
+          <textarea id="pe" class="h260" placeholder="在此貼上 PE、功能狀態、Local finding…"></textarea>
+          <label>HTML（治療醫囑，原檔 HTML 片段亦可）</label>
+          <textarea id="htmltext" class="h200" placeholder="在此貼上 HTML 片段或關鍵字/縮寫…"></textarea>
+          <div class="row" style="margin-top:10px">
+            <button id="gen">產生報告</button>
+            <button id="copy" class="ghost">複製報告</button>
+            <button id="save" class="ghost">下載 .txt</button>
+            <span id="status" class="tiny muted"></span>
+            <span class="right tiny muted">本頁資料會暫存於瀏覽器 localStorage</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>輸出</h2>
+        <div class="body">
+          <div id="out" class="out h340" placeholder="報告將顯示於此…"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer tiny">
+      <div>靜態部署：
+
+GitHub Pages：<span class="muted">將本檔推到 public 分支或 <code>main/docs</code>，啟用 Pages 指向該資料夾</span>；Netlify / Cloudflare Pages：<span class="muted">拖曳上傳或綁定儲存庫，建置命令留空（純靜態）</span>。公司網路若封鎖 streamlit，本檔仍可在院內 IIS/Nginx 作為純靜態頁面提供。</div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const $ = (sel)=>document.querySelector(sel);
+  const diagnosis = $('#diagnosis');
+  const pe = $('#pe');
+  const htmltext = $('#htmltext');
+  const out = $('#out');
+  const status = $('#status');
+
+  // ===== 小工具 =====
+  const box = (b)=> b ? '■' : '□';
+  const safeLower = (s)=> (s||'').toLowerCase();
+  const reTest = (re, s)=> re.test(s||'');
+  const findAll = (re, s)=> Array.from((s||'').matchAll(re));
+
+  // 儲存/載入（localStorage）
+  const persistKey = 'grandrun-static-v1';
+  try{
+    const saved = JSON.parse(localStorage.getItem(persistKey)||'null');
+    if(saved){ diagnosis.value = saved.dx||''; pe.value = saved.pe||''; htmltext.value = saved.html||''; }
+  }catch(e){}
+  function persist(){ try{ localStorage.setItem(persistKey, JSON.stringify({dx: diagnosis.value, pe: pe.value, html: htmltext.value})) }catch(e){} }
+  diagnosis.addEventListener('input', persist); pe.addEventListener('input', persist); htmltext.addEventListener('input', persist);
+
+  // ===== 版本判定 =====
+  function detectCaseType(dx){
+    const d = safeLower(dx);
+    if (/\b(sci|spinal\s*cord\s*injury)\b/i.test(d)) return 'SCI';
+    if (/\b(tbi|traumatic\s*brain\s*injury|head\s*injury)\b/i.test(d)) return 'TBI';
+    return 'CVA';
+  }
+
+  // ===== 偏癱側 =====
+  function inferHemiparesisSide(dx){
+    const t = safeLower(dx||'');
+    const R = [/\bright(?:[-\s]*sided)?\s*(?:hemi(?:paresis|plegia)|weakness)\b/i,
+               /(?:hemi(?:paresis|plegia)|weakness)\b[^.\n]*\bright(?:[-\s]*side)?\b/i,
+               /\brt?\.?\s*(?:hemi(?:paresis|plegia)|weakness)\b/i,
+               /\br(?:ight)?\s*side\b[^.\n]*\bhemi(?:paresis|plegia)\b/i,
+               /\brhp\b/i];
+    const L = [/\bleft(?:[-\s]*sided)?\s*(?:hemi(?:paresis|plegia)|weakness)\b/i,
+               /(?:hemi(?:paresis|plegia)|weakness)\b[^.\n]*\bleft(?:[-\s]*side)?\b/i,
+               /\blt?\.?\s*(?:hemi(?:paresis|plegia)|weakness)\b/i,
+               /\bl(?:eft)?\s*side\b[^.\n]*\bhemi(?:paresis|plegia)\b/i,
+               /\blhp\b/i];
+    if (R.some(r=>r.test(t))) return 'right';
+    if (L.some(r=>r.test(t))) return 'left';
+    return null;
+  }
+  function _mpToFloat(s){
+    if(!s) return NaN; s = String(s).trim().toUpperCase();
+    if(s==='NT') return NaN;
+    const nums = s.match(/[0-5]/g);
+    if(!nums) return NaN; // 取最低
+    return Math.min(...nums.map(n=>parseInt(n,10)));
+  }
+  function inferHemiparesisSideFromMP(pet){
+    const t = pet||''; let cands=[];
+    let r1 = findAll(/\bR(?:ight)?[^:\n]{0,20}MP\s*[:：]?\s*([0-5][+-]?)/ig, t).map(m=>m[1]);
+    let l1 = findAll(/\bL(?:eft)?[^:\n]{0,20}MP\s*[:：]?\s*([0-5][+-]?)/ig, t).map(m=>m[1]);
+    let r2 = findAll(/MP\s*\(\s*R(?:ight)?\s*\)\s*[:：]?\s*([0-5][+-]?)/ig, t).map(m=>m[1]);
+    let l2 = findAll(/MP\s*\(\s*L(?:eft)?\s*\)\s*[:：]?\s*([0-5][+-]?)/ig, t).map(m=>m[1]);
+    const parts = findAll(/\b(R|L)(?:UE|LE)\b[^:\n]{0,20}MP\s*[:：]?\s*([0-5][+-]?)/ig, t);
+    const avg = (arr)=> arr.length? (arr.reduce((a,b)=>a+_mpToFloat(b),0)/arr.length) : NaN;
+    let rVals=[...r1,...r2], lVals=[...l1,...l2];
+    parts.forEach(m=>{ (m[1].toUpperCase()==='R'? rVals:lVals).push(m[2]) });
+    const r = avg(rVals), l = avg(lVals);
+    if(!isNaN(r) && !isNaN(l)){
+      if (r + 0.5 <= l) return 'right';
+      if (l + 0.5 <= r) return 'left';
+    }
+    return null;
+  }
+
+  // ===== Brunnstrom / MAS =====
+  function parseBrunnstromBlock(pet){
+    const pe = pet||''; let side='Right', parts=null;
+    let mL = pe.match(/left\s*limbs\s*:\s*([IVXivx\-\s\/]+)/i);
+    let mR = pe.match(/right\s*limbs\s*:\s*([IVXivx\-\s\/]+)/i);
+    if (mR){ side='Right'; parts = mR[1]; }
+    if (mL){ side='Left';  parts = mL[1]; }
+    let up='NA', ud='NA', ll='NA';
+    if(parts){ const seg = parts.split('/').map(s=>s.trim()).filter(Boolean); if(seg.length===3){ [up,ud,ll]=seg; } }
+    return {side, up, ud, ll};
+  }
+  function defaultMAS(){ return { R1:'0/0/0', R2:'0/0', L1:'0/0/0', L2:'0/0' }; }
+
+  // ===== 認知 =====
+  function inferCognitionLevel(pet){
+    const p = safeLower(pet||'');
+    if (/comprehension\s*:\s*(impaired|poor|decreased|abnormal)/i.test(p)) return '差';
+    if (/comprehension\s*:\s*(fair|fair~good)/i.test(p)) return '尚可';
+    if (/cognition[^:\n]*\b(poor|impaired|decreased|abnormal)\b/i.test(p)) return '差';
+    if (/cognition[^:\n]*\bfair\b/i.test(p)) return '尚可';
+    return '良';
+  }
+
+  // ===== Local finding tubes =====
+  function parseLocalFindingTubes(pet){
+    const lines = (pet||'').split(/\n+/).map(s=>s.trim().toLowerCase()).filter(Boolean); let ng=false, foley=false, tr=false;
+    for(let i=lines.length-1;i>=0;i--){ const ln=lines[i]; if(ln.startsWith('local finding')){
+      if(/ng[^a-z0-9]*\+/i.test(ln)) ng=true; if(/foley[^a-z0-9]*\+/i.test(ln)) foley=true; if(/(tracheostomy|tr\.)[^a-z0-9]*\+/i.test(ln)) tr=true; break; } }
+    return {ng, foley, tr};
+  }
+
+  // ===== 失語/吞嚥/氣切 =====
+  function inferAphasiaTypes(dx, pet){
+    const d = safeLower(dx||''), p = safeLower(pet||'');
+    const exprKeys = [/\bbroca\b/i, /\bmotor\b/i, /\bexpressive\b/i, /\btranscortical\s*motor\b/i, /\btcma\b/i];
+    const recepKeys = [/\bwernicke\b/i, /\bsensory\b/i, /\breceptive\b/i, /\btranscortical\s*sensory\b/i, /\btcsa\b/i];
+    let expr = exprKeys.some(r=>r.test(d)); let recep = recepKeys.some(r=>r.test(d));
+    if (/\bglobal\b/i.test(d)){ expr=true; recep=true; }
+    if(!(expr||recep)){
+      const flu = (p.match(/fluency\s*:\s*([A-Za-z\-]+)/i)||[])[1];
+      const comp = (p.match(/comprehension\s*:\s*([A-Za-z\-]+)/i)||[])[1];
+      const isImp = (v)=> v && /(impaired|poor|decreased|abnormal|non\-?fluent|aphasia)/i.test(v);
+      if(isImp(flu)) expr = true; if(isImp(comp)) recep = true;
+    }
+    if(!(expr||recep)){
+      const m = (d+'\n'+p).match(/aphasia\s*\(\s*([+-])\s*\)/i); if(m && m[1]==='+') expr = true;
+    }
+    return {expr, recep};
+  }
+  function inferSpeechSwallowTrach(dx, pet){
+    const d = safeLower(dx||''), p = safeLower(pet||'');
+    // dysarthria
+    let dysarthria=false;
+    if(/dysarthria\s*\(\s*\-\s*\)/i.test(d+'\n'+p)) dysarthria=false; else if(/dysarthria\s*\(\s*\+\s*\)/i.test(d+'\n'+p)) dysarthria=true; else if(/\bdysarthria\b/i.test(d+'\n'+p)) dysarthria=true;
+    // NG / trach
+    const lines = (pet||'').split(/\n+/).map(s=>s.trim().toLowerCase()).filter(Boolean); let ng=false, tr=false;
+    for(let i=lines.length-1;i>=0;i--){ const ln=lines[i]; if(ln.startsWith('local finding')){ if(/ng[^a-z0-9]*\+/i.test(ln)) ng=true; if(/(tracheostomy|tr\.)[^a-z0-9]*\+/i.test(ln)) tr=true; break; } }
+    if(/\btracheostomy\b.*\(\+\)/i.test(d+'\n'+p)) tr=true;
+    // dysphagia
+    const dxHas = /\bdysphagia\b/i.test(d) && !/(no|without)\s+dysphagia|dysphagia\s*\(\s*\-\s*\)/i.test(d);
+    const pePlus = /dysphagia\s*\(\s*\+\s*\)/i.test(p);
+    const peMinus= /dysphagia\s*\(\s*\-\s*\)/i.test(p);
+    let dysphagiaAny = false;
+    if(ng) dysphagiaAny=true; else if(dxHas) dysphagiaAny=true; else if(pePlus) dysphagiaAny=true; else if(peMinus) dysphagiaAny=false; else dysphagiaAny=false;
+    return {dysarthria, dysphagiaAny, trachPlus: tr, ngPlus: ng};
+  }
+
+  // ===== Functional status 解析 =====
+  function parseFunctionalComponents(pet){
+    const t = safeLower(pet||'');
+    const pick = (pat)=>{ const m=t.match(new RegExp(pat+"[^.\n]{0,40}(poor|fair~good|fair|good)", 'i')); return m? m[1]: null };
+    return {
+      rolling:   pick("\\brolling\\b"),
+      sit_up:    pick("\\bsit(?:ting)?(?:\\s*up)?\\b(?![^.\\n]*balance)"),
+      sit_bal:   pick("\\bsitting\\s*balance\\b"),
+      transfer:  pick("\\btransfer\\b"),
+      stand_up:  pick("\\bstanding(?:\\s*up)?\\b(?![^.\\n]*balance)"),
+      stand_bal: pick("\\bstanding\\s*balance\\b"),
+      walk:      pick("\\b(ambulation|walking|gait|walk)\\b"),
+    };
+  }
+  function inferMobilityFromFunction(pet){
+    const comp = parseFunctionalComponents(pet); const hasAny = Object.values(comp).some(v=>!!v) || /\b(ambulation|walking|gait|walk)\b/i.test(pet||'');
+    if(!hasAny) return '';
+    let mobility;
+    if (comp.rolling==='poor' && comp.sit_up==='poor') mobility='Bed ridden';
+    else{
+      if (comp.sit_up==='poor' && ['fair','fair~good','good'].includes(comp.sit_bal||'')) mobility='W/C care';
+      else{ const bucket=[comp.sit_up, comp.transfer, comp.stand_up, comp.sit_bal, comp.stand_bal]; const cnt=bucket.filter(x=>['fair','fair~good','good'].includes(x||'')).length; mobility = (cnt>=2)? 'W/C activity':'W/C care'; }
+    }
+    const txt = safeLower(pet||'');
+    if (/\bwalk(?:ing)?\s+(with|using)\s+(a\s*)?walker\b/i.test(txt) || /\bwalker\b/i.test(txt)) return 'walker';
+    if (/\bfree\s*ambulation\b/i.test(txt) || /\bwalk(?:ing)?\s+(independent|independently)\b/i.test(txt) || /\bwalk(?:ing)?\s+without\s+(a\s*)?(walker|aid|assistive\s*device)\b/i.test(txt)) return 'Free ambulation';
+    if (comp.walk==='good' || comp.walk==='fair~good') return 'Free ambulation';
+    if (comp.walk==='poor') return 'walker';
+    return mobility;
+  }
+  function inferTransferFromFunction(pet){
+    const level = parseFunctionalComponents(pet).transfer; if(level==='good') return 'Good'; if(level==='fair~good') return 'Fair~good'; if(level==='fair') return 'Fair'; if(level==='poor') return 'Poor'; return '';
+  }
+
+  // ===== Barthel Index 區塊擷取 =====
+  function extractBarthelBlock(pet){
+    if(!pet) return null; const lines = pet.split(/\n/); let start=-1;
+    for(let i=0;i<lines.length;i++){ if(/^\s*barthel\s*index\b/i.test(lines[i]) || /^\s*BARTHEL\s*INDEX\s*$/i.test(lines[i])){ start=i; break; } }
+    if(start<0) return null; let buff=[];
+    for(let i=start;i<lines.length;i++){
+      const ln = lines[i]; if(!ln.trim() && buff.length) break; if(/^={3,}/.test(ln)) break; if(/^\s*(Local finding|Functional status|COORDINATION|OTHER NEUROLOGICAL|SENSORY FUNCTION)\b/i.test(ln)) break; buff.push(ln.replace(/\s+$/,''));
+    }
+    return buff.length? buff.join('\n').trim(): null;
+  }
+
+  // ===== SCI：從 MP/ASIA 表估 MMT (RUL/RLL/LUL/LLL) =====
+  function _pickMinScoreToken(tokens){
+    if(!tokens || !tokens.length) return null; const tokMin=(tok)=>{ if(!tok) return Infinity; tok = tok.trim().toUpperCase(); if(tok==='NT') return Infinity; const nums = tok.match(/[0-5]/g); return nums? Math.min(...nums.map(n=>+n)): Infinity; };
+    return tokens.slice().sort((a,b)=> tokMin(a)-tokMin(b))[0];
+  }
+  function parseMMT_UL_LL_FromPE(pet){
+    let RUL='NA', RLL='NA', LUL='NA', LLL='NA'; const text = pet||'';
+    const m = text.match(/M\.?P\.?\s*:\s*\(0-5\)([\s\S]*?)\n={3,}/i);
+    function collect(src, limb, part, side){
+      const re = new RegExp(limb+"\\s+"+part+"\\s+([0-5][+-]?|NT)\\s+([0-5][+-]?|NT)", 'ig'); let toks=[]; let mm; while((mm=re.exec(src))){ toks.push(side==='R'? mm[1]: mm[2]); } return toks; }
+    if(m){ const block=m[1];
+      const r_ul = _pickMinScoreToken(collect(block,'upper','proximal','R')) || _pickMinScoreToken(collect(block,'upper','distal','R'));
+      const l_ul = _pickMinScoreToken(collect(block,'upper','proximal','L')) || _pickMinScoreToken(collect(block,'upper','distal','L'));
+      const r_ll = _pickMinScoreToken(collect(block,'lower','proximal','R')) || _pickMinScoreToken(collect(block,'lower','distal','R'));
+      const l_ll = _pickMinScoreToken(collect(block,'lower','proximal','L')) || _pickMinScoreToken(collect(block,'lower','distal','L'));
+      if(r_ul) RUL=r_ul; if(l_ul) LUL=l_ul; if(r_ll) RLL=r_ll; if(l_ll) LLL=l_ll; return {RUL,RLL,LUL,LLL};
+    }
+    // fallback: ASIA rows
+    const levels=['C5','C6','C7','C8','T1','L2','L3','L4','L5','S1'];
+    const asia = {R:{}, L:{}};
+    function grab(level){
+      let m1 = text.match(new RegExp('^\\s*([0-5][+-]?|[0-5]\\s*-\\s*[0-5])\\s*'+level+'\\b.*?([0-5][+-]?|[0-5]\\s*-\\s*[0-5])\\s*$', 'im'));
+      if(m1) return [m1[1], m1[2]];
+      let m2 = text.match(new RegExp(level+'\\b.*?([0-5][+-]?|[0-5]\\s*-\\s*[0-5]).*?([0-5][+-]?|[0-5]\\s*-\\s*[0-5])', 'is'));
+      if(m2) return [m2[1], m2[2]]; return [null,null];
+    }
+    levels.forEach(lv=>{ const [r,l] = grab(lv); if(r) asia.R[lv]=r; if(l) asia.L[lv]=l; });
+    const r_ul = _pickMinScoreToken(['C5','C7'].map(k=>asia.R[k]).filter(Boolean)) || _pickMinScoreToken(['C6','C8','T1'].map(k=>asia.R[k]).filter(Boolean));
+    const l_ul = _pickMinScoreToken(['C5','C7'].map(k=>asia.L[k]).filter(Boolean)) || _pickMinScoreToken(['C6','C8','T1'].map(k=>asia.L[k]).filter(Boolean));
+    const r_ll = _pickMinScoreToken(['L2','L3'].map(k=>asia.R[k]).filter(Boolean)) || _pickMinScoreToken(['L4','L5','S1'].map(k=>asia.R[k]).filter(Boolean));
+    const l_ll = _pickMinScoreToken(['L2','L3'].map(k=>asia.L[k]).filter(Boolean)) || _pickMinScoreToken(['L4','L5','S1'].map(k=>asia.L[k]).filter(Boolean));
+    if(r_ul) RUL=r_ul; if(l_ul) LUL=l_ul; if(r_ll) RLL=r_ll; if(l_ll) LLL=l_ll; return {RUL,RLL,LUL,LLL};
+  }
+
+  // MP 平均
+  function parseMP_FromPE(pet){
+    const t = pet||''; let rVals=[], lVals=[];
+    function pushAll(arr, rex){ findAll(rex, t).forEach(m=>arr.push(_mpToFloat(m[1]))); }
+    pushAll(rVals, /\bR(?:ight)?[^:\n]{0,20}MP\s*[:：]?\s*([0-5][+-]?|[0-5]\s*-\s*[0-5])/ig);
+    pushAll(lVals, /\bL(?:eft)?[^:\n]{0,20}MP\s*[:：]?\s*([0-5][+-]?|[0-5]\s*-\s*[0-5])/ig);
+    pushAll(rVals, /MP\s*\(\s*R(?:ight)?\s*\)\s*[:：]?\s*([0-5][+-]?|[0-5]\s*-\s*[0-5])/ig);
+    pushAll(lVals, /MP\s*\(\s*L(?:eft)?\s*\)\s*[:：]?\s*([0-5][+-]?|[0-5]\s*-\s*[0-5])/ig);
+    findAll(/\b(R|L)(?:UE|LE)\b[^:\n]{0,20}MP\s*[:：]?\s*([0-5][+-]?|[0-5]\s*-\s*[0-5])/ig, t).forEach(m=>{
+      (m[1].toUpperCase()==='R'? rVals:lVals).push(_mpToFloat(m[2]));
+    });
+    if(!rVals.length && !lVals.length){ // fallback: ASIA rows
+      const levels=['C5','C6','C7','C8','T1','L2','L3','L4','L5','S1'];
+      levels.forEach(lv=>{
+        const m = t.match(new RegExp('^\\s*([0-5][+-]?|[0-5]\\s*-\\s*[0-5])\\s*'+lv+'\\b.*?([0-5][+-]?|[0-5]\\s*-\\s*[0-5])\\s*$', 'im'))
+               || t.match(new RegExp(lv+'\\b.*?([0-5][+-]?|[0-5]\\s*-\\s*[0-5]).*?([0-5][+-]?|[0-5]\\s*-\\s*[0-5])', 'is'));
+        if(m){ rVals.push(_mpToFloat(m[1])); lVals.push(_mpToFloat(m[2])); }
+      });
+    }
+    const avg=(a)=>{ a=a.filter(x=>!isNaN(x)); return a.length? a.reduce((p,c)=>p+c,0)/a.length : NaN };
+    const R=avg(rVals), L=avg(lVals); let ALL;
+    if(!isNaN(R)&&!isNaN(L)) ALL=(R+L)/2; else if(!isNaN(R)) ALL=R; else if(!isNaN(L)) ALL=L; else ALL=NaN;
+    return {R,L,all:ALL};
+  }
+
+  // ===== 解析 HTML → 治療計畫 =====
+  function parseTreatmentsFromHTML(html){
+    const txt = (html||'').replace(/\s+/g,' ').toLowerCase();
+    const has = (...keys)=> keys.some(k=> txt.includes(k.toLowerCase()));
+    const result = {
+      PT: { 'PROM':false, '傾斜台':false, '促進':false, '運動':false, '轉位':false, '肌力':false, '耐力':false, '行走':false, '步態':false, '熱敷':false, '電療':false },
+      OT: { 'PROM':false, '姿態':false, '肌力':false, '坐站平衡':false, '日常生活':false, '掌指功能':false, '協調':false, '上下肢功能':false, '運動感覺':false },
+      ST: { '失語症':false, '吞嚥困難':false, '構音困難':false },
+      PSY:{ '成人支持':false, '行為治療計畫':false, '成人心理生理':false, '心理測試':false, '人格特質':false },
+      NURSE:{ '自我照顧能力':true, '接受衛教能力':true, '用藥指導':true, '跌倒危險因子':true, '身體活動功能':true }
+    };
+    // PT
+    if(has('ptm5','passive r.o.m','passive rom','被動性關節運動')) result.PT['PROM']=true;
+    if(has('ptm8','tilting table')) result.PT['傾斜台']=true;
+    if(has('ptc1','facilitation techniques','促進技術','姿勢訓練','posture training','ptm13')) result.PT['促進']=true;
+    if(has('ptm7','therapeutic ex','ptm6','stretching')) result.PT['運動']=true;
+    if(has('ptm9','strengthening')) result.PT['肌力']=true;
+    if(has('ptm10','endurance')) result.PT['耐力']=true;
+    if(has('ptc6','ambulation training','行走訓練')){ result.PT['行走']=true; result.PT['步態']=true; }
+    if(has('pts2','hot\\cold pack','hot cold pack','熱敷') || has('pts4','paraffin')) result.PT['熱敷']=true;
+    if(has('pts8','interferential') || has('pts9','tens') || has('ptm1','muscle stimulation') || has('pts11','low power laser') || has('pts10','high frequency discharge')) result.PT['電療']=true;
+    // OT
+    if(has('ot2','被動性關節訓練','passive')) result.OT['PROM']=true;
+    if(has('ot1','posture training','姿態訓練')) result.OT['姿態']=true;
+    if(has('ot6','muscle strenght','muscle strength')) result.OT['肌力']=true;
+    if(has('ot3','坐站平衡','sitting balance')) result.OT['坐站平衡']=true;
+    if(has('ot5','adl training','日常生活')) result.OT['日常生活']=true;
+    if(has('ot10','hand on foot function','掌指功能')) result.OT['掌指功能']=true;
+    if(has('ot11','coordination','協調訓練')) result.OT['協調']=true;
+    if(has('ot8','u/e or l/e function training','上肢(下肢)功能訓練','上下肢功能')) result.OT['上下肢功能']=true;
+    if(has('ot7','motion sensory','運動知覺','sensory')) result.OT['運動感覺']=true;
+    // ST/PSY
+    if(txt.includes('吞嚥') || txt.includes('oral tx')) result.ST['吞嚥困難']=true;
+    if(txt.includes('構音') || txt.includes('dysarthria')) result.ST['構音困難']=true;
+    if(['語言治療','auditory comprehension','verbal production'].some(k=>txt.includes(k))) result.ST['失語症']=true;
+    if(txt.includes('行為治療計畫')) result.PSY['行為治療計畫']=true;
+    if(['心理測檢','心理測試','電腦化神經心理測驗'].some(k=>txt.includes(k))) result.PSY['心理測試']=true;
+    if(txt.includes('人格特質')) result.PSY['人格特質']=true;
+    if(['生理心理功能','成人'].some(k=>txt.includes(k))){ result.PSY['成人心理生理']=true; result.PSY['成人支持']=true; }
+    return result;
+  }
+  function applyST_FromAssessment(flags, dx, pet){
+    const {expr, recep} = inferAphasiaTypes(dx, pet); const {dysarthria, dysphagiaAny} = inferSpeechSwallowTrach(dx, pet);
+    flags.ST = flags.ST || { '失語症':false, '吞嚥困難':false, '構音困難':false };
+    flags.ST['失語症'] = !!(expr || recep);
+    flags.ST['吞嚥困難'] = !!dysphagiaAny;
+    flags.ST['構音困難'] = !!dysarthria;
+    return flags;
+  }
+
+  // ===== 出院目標 =====
+  function tokenMinValue(tok){ if(!tok) return Infinity; tok = String(tok).trim().toUpperCase(); if(tok==='NT') return Infinity; const nums = tok.match(/[0-5]/g); return nums? Math.min(...nums.map(n=>+n)) : Infinity; }
+  function inferDischargeGoalsFromAll(pet, llToken){
+    const goals = { "自行翻身":false, "坐姿平衡":false, "自行轉位":false, "站立":false, "自行操控輪椅活動":false, "協助持輔助器行走":false, "持輔助器獨立行走":false };
+    const comp = parseFunctionalComponents(pet);
+    const arr = [comp.rolling, comp.sit_up, comp.transfer, comp.stand_up];
+    const allPoor = arr.filter(v=>v!=null).length>=2 && arr.filter(v=>v==='poor').length===arr.filter(v=>v!=null).length;
+    const mpAll = parseMP_FromPE(pet).all; const mmt = parseMMT_UL_LL_FromPE(pet); const mmtMin = Math.min(tokenMinValue(mmt.RUL), tokenMinValue(mmt.RLL), tokenMinValue(mmt.LUL), tokenMinValue(mmt.LLL));
+    if(allPoor || (!isNaN(mpAll) && mpAll<3) || mmtMin<3){ goals['坐姿平衡']=true; goals['自行轉位']=true; }
+    if(comp.rolling==='poor') goals['自行翻身']=true;
+    const txt = safeLower(pet||'');
+    if (/\bfree\s*ambulation\b/i.test(txt) || /\bwalk(?:ing)?\s+(independent|independently|without\s+(a\s*)?(walker|aid|assistive\s*device))\b/i.test(txt)) goals['持輔助器獨立行走']=true;
+    if ((/\bwalk(?:ing)?\s+(with|using)\s+(a\s*)?walker\b/i.test(txt) || /\bwalker\b/i.test(txt)) && !goals['持輔助器獨立行走']) goals['協助持輔助器行走']=true;
+    if(['fair','fair~good','good'].includes(comp.stand_up||'')){ goals['自行操控輪椅活動']=true; goals['站立']=true; }
+    if(llToken){ const s = llToken.toUpperCase().replace(/\s+/g,''); if (s.split(/[-\/]/).some(x=>x==='V'||x==='VI')) goals['持輔助器獨立行走']=true; }
+    return goals;
+  }
+
+  function buildTreatmentBlock(flags){
+    function lineFrom(cat, items){ return cat+': '+ items.map(it=> box(flags[cat]?.[it]) + it).join(' '); }
+    const pt_items = ['PROM','傾斜台','促進','運動','轉位','肌力','耐力','行走','步態','熱敷','電療'];
+    const ot_items = ['PROM','姿態','肌力','坐站平衡','日常生活','掌指功能','協調','上下肢功能','運動感覺'];
+    const st_items = ['失語症','吞嚥困難','構音困難'];
+    const psy_items= ['成人支持','行為治療計畫','成人心理生理','心理測試','人格特質'];
+    const nurse_items=['自我照顧能力','接受衛教能力','用藥指導','跌倒危險因子','身體活動功能'];
+    const lines=[ '【治療計畫】', lineFrom('PT', pt_items), lineFrom('OT', ot_items), lineFrom('ST', st_items), lineFrom('PSY', psy_items), lineFrom('NURSE', nurse_items) ];
+    return lines.join('\n');
+  }
+  function buildDischargeGoals(goals){ const order=["自行翻身","坐姿平衡","自行轉位","站立","自行操控輪椅活動","協助持輔助器行走","持輔助器獨立行走"]; return '【出院目標】\n'+ order.map(k=> box(!!goals[k])+k).join(' '); }
+  function buildPlanAdjustmentFromAssessment(diag, pe){
+    const {expr, recep} = inferAphasiaTypes(diag, pe); const isGlobal = expr && recep; const {dysarthria, dysphagiaAny} = inferSpeechSwallowTrach(diag, pe);
+    const st = { '口腔動作訓練':false, '發音':false, '吞嚥能力':false, '語言理解':false, '語言表達':false, '口語長度':false };
+    if(dysphagiaAny){ st['口腔動作訓練']=true; st['吞嚥能力']=true; }
+    if(expr||recep||isGlobal){ st['發音']=true; st['口語長度']=true; }
+    if(isGlobal){ st['語言表達']=true; st['語言理解']=true; } else { if(expr) st['語言表達']=true; if(recep) st['語言理解']=true; }
+    const {ng, foley, tr} = parseLocalFindingTubes(pe); const nursingTube = (ng||foley||tr);
+    const tubeStr = `（${ng? '■NG':'□NG'} ${foley? '■Foley':'□Foley'} ${tr? '■Tr.':'□Tr.'}）`;
+    const ptot = 'PT&OT: '+ [ box(false)+'PROM', box(true)+'移位訓練', box(true)+'坐姿平衡', box(true)+'肌力', box(true)+'站立平衡', box(true)+'掌指功能', box(true)+'步態', box(false)+'耐力', box(true)+'日常生活', box(true)+'協調', box(false)+'認知功能', box(false)+'電療', box(false)+'其他:____' ].join(' ');
+    const stLine = 'ST: '+ [ box(st['口腔動作訓練'])+'口腔動作訓練', box(st['發音'])+'發音', box(st['吞嚥能力'])+'吞嚥能力', box(st['語言理解'])+'語言理解', box(st['語言表達'])+'語言表達', box(st['口語長度'])+'口語長度' ].join(' ');
+    const psyLine= 'Psy: '+ [ box(true)+'認知功能', box(true)+'注意力', box(false)+'記憶力', box(false)+'執行功能', box(false)+'情緒控制', box(true)+'家屬諮詢', box(true)+'疾病適應' ].join(' ');
+    const nurseLine='護理: '+ [ box(true)+'自我照顧能力', box(nursingTube)+'管路照顧與移除'+tubeStr, box(true)+'跌倒預防', box(false)+'皮膚/傷口照顧', box(false)+'感染預防', box(false)+'安置' ].join(' ');
+    return '【治療計畫修正與加強】\n'+ [ptot, stLine, psyLine, nurseLine, '家屬:', '全人:'].join('\n');
+  }
+
+  function buildClinicalAssessmentBlock(dx, pet){
+    const caseType = detectCaseType(dx);
+    const sideMp = inferHemiparesisSideFromMP(pet);
+    const sideDiag = inferHemiparesisSide(dx);
+    const b = parseBrunnstromBlock(pet); // {side, up, ud, ll}
+    const sideLocal = (()=>{
+      const t = safeLower(pet||''); const m = t.match(/local\s*finding\s*:\s*(.+)/i); const seg = m? m[1]: t;
+      if(/\bright[^a-z]{0,3}(hemiplegia|hemiparesis)\b/i.test(seg) || /\brt\.?\b[^.\n]{0,10}(hemiplegia|hemiparesis)\b/i.test(seg)) return 'right';
+      if(/\bleft[^a-z]{0,3}(hemiplegia|hemiparesis)\b/i.test(seg) || /\blt\.?\b[^.\n]{0,10}(hemiplegia|hemiparesis)\b/i.test(seg)) return 'left';
+      return null;
+    })();
+    const side = (sideMp || sideLocal || sideDiag || (b.side? b.side.toLowerCase(): null) || 'right');
+
+    const {expr, recep} = inferAphasiaTypes(dx, pet);
+    const {dysarthria, dysphagiaAny, trachPlus, ngPlus} = inferSpeechSwallowTrach(dx, pet);
+    const mobility = inferMobilityFromFunction(pet);
+    const transferAbility = inferTransferFromFunction(pet);
+    const cog = inferCognitionLevel(pet);
+    const mas = defaultMAS();
+
+    let swallowNone=false, swallowMild=false, swallowSevere=false;
+    if(ngPlus) swallowSevere=true; else if(dysphagiaAny) swallowMild=true; else swallowNone=true;
+
+    const isGlobal = expr && recep;
+
+    const diagLow = safeLower(dx);
+    const hasQuadri = /(tetraplegia|quadriplegia)/i.test(diagLow);
+    const hasPara  = /paraplegia/i.test(diagLow);
+    const hasHemi  = /(hemiplegia|hemiparesis)/i.test(diagLow);
+
+    let limbText;
+    if(hasQuadri){
+      limbText = `${box(false)}肢體偏癱 ${box(false)}雙下肢無力 ${box(true)}四肢無力 ${box(false)}左側無力 ${box(false)}右側無力`;
+    }else if(hasPara){
+      limbText = `${box(false)}肢體偏癱 ${box(true)}雙下肢無力 ${box(false)}四肢無力 ${box(false)}左側無力 ${box(false)}右側無力`;
+    }else if(hasHemi){
+      limbText = `${box(true)}肢體偏癱 ${box(false)}雙下肢無力 ${box(false)}四肢無力 ${box(side==='left')}左側無力 ${box(side==='right')}右側無力`;
+    }else{
+      limbText = `${box(true)}肢體偏癱 ${box(false)}雙下肢無力 ${box(false)}四肢無力 ${box(side==='left')}左側無力 ${box(side==='right')}右側無力`;
+    }
+
+    const lines = [];
+    lines.push('【臨床評估】');
+    lines.push(limbText);
+    lines.push('移動方式 '+ [ `${box(mobility==='Bed ridden')}Bed ridden`, `${box(mobility==='W/C care')}W/C care`, `${box(mobility==='W/C activity')}W/C activity`, `${box(mobility==='walker')}walker`, `${box(mobility==='Free ambulation')}Free ambulation` ].join(' '));
+    lines.push('移位能力 '+ [ `${box(transferAbility==='Good')}Good`, `${box(transferAbility==='Fair~good')}Fair~good`, `${box(transferAbility==='Fair')}Fair`, `${box(transferAbility==='Poor~fair')}Poor~fair`, `${box(transferAbility==='Poor')}Poor` ].join(' '));
+
+    if(caseType==='CVA'){
+      const sideCap = String(side).startsWith('r')? 'Right':'Left';
+      lines.push(`Brunnstrom stage: ${sideCap}   up / ud / ll: ${b.up} / ${b.ud} / ${b.ll}`);
+    }else if(caseType==='SCI'){
+      const mmt = parseMMT_UL_LL_FromPE(pet);
+      lines.push(`MMT: RUL/RLL: ${mmt.RUL} / ${mmt.RLL}   LUL/LLL: ${mmt.LUL} / ${mmt.LLL}`);
+      const barthel = extractBarthelBlock(pet); if(barthel) lines.push(barthel);
+    }else if(caseType==='TBI'){
+      const barthel = extractBarthelBlock(pet); if(barthel) lines.push(barthel);
+    }
+
+    lines.push('痙攣spasticity: Right (elbow/wrist/finger, knee/ankle):'+ `${mas.R1},${mas.R2}`);
+    lines.push('              (MAS)Left (elbow/wrist/finger, knee/ankle):'+ `${mas.L1},${mas.L2}`);
+    lines.push('吞嚥障礙 '+ [ `${box(swallowNone)}無`, `${box(swallowMild)}輕度、需監視`, `${box(swallowSevere)}嚴重、需鼻胃管` ].join(' '));
+    lines.push('語言障礙 '+ [ `${box(!(expr||recep||dysarthria||trachPlus))}無`, `${box(expr && !isGlobal)}表達性失語症`, `${box(recep && !isGlobal)}接受性失語症`, `${box(isGlobal)}球性失語症`, `${box(dysarthria)}構音異常`, `${box(trachPlus)}氣切` ].join(' '));
+    lines.push(`認知障礙 ${box(cog==='差')}差 ${box(cog==='尚可')}尚可 ${box(cog==='良')}良`);
+    lines.push(`關節攣縮 ${box(true)}無 ${box(false)}有、部位________________`);
+    return lines.join('\n');
+  }
+
+  function buildDischargeGoalsBlock(pet){ const {ll} = parseBrunnstromBlock(pet); const goals = inferDischargeGoalsFromAll(pet, ll); return buildDischargeGoals(goals); }
+  function generateReport(dx, pet, html){
+    const assessment = buildClinicalAssessmentBlock(dx, pet);
+    let flags = parseTreatmentsFromHTML(html);
+    flags = applyST_FromAssessment(flags, dx, pet);
+    const treatment = buildTreatmentBlock(flags);
+    const goals = buildDischargeGoalsBlock(pet);
+    const adjust = buildPlanAdjustmentFromAssessment(dx, pet);
+    return [assessment, treatment, goals, adjust].join('\n\n');
+  }
+
+  // ===== UI 綁定 =====
+  $('#gen').addEventListener('click', ()=>{
+    const dx = diagnosis.value.trim(); const pet = pe.value.trim(); if(!dx && !pet){ status.textContent='請至少輸入 Diagnosis 或 PE'; status.className='warn tiny'; return; }
+    const rpt = generateReport(dx, pet, htmltext.value||''); out.textContent = rpt; status.textContent='✅ 已產生報告'; status.className='ok tiny';
+  });
+  $('#copy').addEventListener('click', async()=>{
+    try{ await navigator.clipboard.writeText(out.textContent||''); status.textContent='已複製到剪貼簿'; status.className='ok tiny'; }catch(e){ status.textContent='複製失敗'; status.className='warn tiny'; }
+  });
+  $('#save').addEventListener('click', ()=>{
+    const blob = new Blob([out.textContent||''], {type:'text/plain;charset=utf-8'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='Grandrun_Report.txt'; a.click(); URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+</body>
+</html>
