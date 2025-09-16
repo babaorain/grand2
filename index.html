@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>🏥 復健科 Grandrun 報告產生器</title>
+  <title>🏥 復健科 Grandrun 報告產生器 · 白底重設計</title>
   <style>
     /* =====================
        Light UI — clean, clinical, print-friendly
@@ -91,7 +91,7 @@
   <div class="wrap">
     <div class="header">
       <h1>🏥 復健科 Grandrun 報告產生器</h1>
-      <div class="sub">高醫復健科</div>
+      <div class="sub">白底・黑字・臨床友善排版</div>
     </div>
 
     <div class="grid">
@@ -106,7 +106,8 @@
 
           <label>HTML（治療醫囑，原檔 HTML 片段亦可）</label>
           <textarea id="htmltext" class="h200" placeholder="在此貼上 HTML 片段或關鍵字/縮寫…"></textarea>
-          </div>
+
+          
         </div>
       </div>
 
@@ -114,18 +115,20 @@
         <h2>輸出</h2>
         <div class="body">
           <div id="out" class="out h340" placeholder="報告將顯示於此…"></div>
-        <div class="row" style="margin-top:10px">
-            <button id="gen">產生報告</button>
-            <button id="copy" class="ghost">複製報告</button>
-            <button id="save" class="ghost">下載 .txt</button>
-            <span id="status" class="tiny muted"></span>
-            <span class="right tiny muted">本頁資料暫存於瀏覽器，重整後消失</span>
         </div>
       </div>
     </div>
 
+    <div class="row" style="margin-top:16px">
+      <button id="gen">產生報告</button>
+      <button id="copy" class="ghost">複製報告</button>
+      <button id="save" class="ghost">下載 .txt</button>
+      <span id="status" class="tiny muted"></span>
+      <span class="right tiny muted">預設不儲存資料；每次開啟皆為空白</span>
+    </div>
+
     <div class="footer tiny">
-      Grand Run 好煩
+      版面著重紙本友善、對比清晰與易讀性。
     </div>
   </div>
 
@@ -144,14 +147,26 @@
   const reTest = (re, s)=> re.test(s||'');
   const findAll = (re, s)=> Array.from((s||'').matchAll(re));
 
-  // 儲存/載入（localStorage）
+  // 儲存/載入（localStorage）— 改為每次載入清空，不做持久化
   const persistKey = 'grandrun-static-v1';
-  try{
-    const saved = JSON.parse(localStorage.getItem(persistKey)||'null');
-    if(saved){ diagnosis.value = saved.dx||''; pe.value = saved.pe||''; htmltext.value = saved.html||''; }
-  }catch(e){}
-  function persist(){ try{ localStorage.setItem(persistKey, JSON.stringify({dx: diagnosis.value, pe: pe.value, html: htmltext.value})) }catch(e){} }
-  diagnosis.addEventListener('input', persist); pe.addEventListener('input', persist); htmltext.addEventListener('input', persist);
+  const USE_PERSIST = false; // 若日後想恢復自動儲存，改為 true
+
+  if (USE_PERSIST) {
+    try{
+      const saved = JSON.parse(localStorage.getItem(persistKey)||'null');
+      if(saved){ diagnosis.value = saved.dx||''; pe.value = saved.pe||''; htmltext.value = saved.html||''; }
+    }catch(e){}
+    function persist(){ try{ localStorage.setItem(persistKey, JSON.stringify({dx: diagnosis.value, pe: pe.value, html: htmltext.value})) }catch(e){} }
+    diagnosis.addEventListener('input', persist); pe.addEventListener('input', persist); htmltext.addEventListener('input', persist);
+  } else {
+    // 每次進站：清空欄位與輸出，並移除舊有保存
+    try{ localStorage.removeItem(persistKey); }catch(e){}
+    diagnosis.value = '';
+    pe.value = '';
+    htmltext.value = '';
+    out.textContent = '';
+    status.textContent = '';
+  }
 
   // ===== 版本判定 =====
   function detectCaseType(dx){
